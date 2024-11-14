@@ -1,12 +1,11 @@
-import io
 import os
-
+import io
 from google.cloud import vision, storage
 from PIL import Image, ImageDraw
 
 
 def detect_text():
-    # Initialize the Google Vision API client
+    # Initialize the Google Vision API and Storage clients
     vision_client = vision.ImageAnnotatorClient()
     storage_client = storage.Client()
     bucket_name = 'staging.focal-sight-440113-b7.appspot.com'
@@ -17,44 +16,37 @@ def detect_text():
     # List all blobs in the bucket (images)
     blobs = list(bucket.list_blobs())
 
+    # Filter out blobs with "_boxed.png" in their names and process the rest
+    image_blobs = [blob for blob in blobs if not "_boxed.png" in blob.name and blob.name.lower().endswith(
+        ('.png', '.jpg', '.jpeg', '.bmp', '.gif', 'webp'))]
+
     # Remove any blobs that have "_boxed.png" in their names
     for blob in blobs:
         if "_boxed.png" in blob.name:
             print(f'Deleting existing boxed image: {blob.name}')
             blob.delete()
 
-    # List to store URIs of newly created blobs
     new_blob_uris = []
 
-    # Process each image blob
-    for blob in blobs:
-        # Skip if blob name contains "_boxed.png" as it was just deleted
-        if "_boxed.png" in blob.name:
-            continue
+    for blob in image_blobs:
+        print(f'\nProcessing file: {blob.name}')
 
-        # Check if the blob name represents an image file
-        if blob.name.lower().endswith(('.png', '.jpg', '.jpeg', '.bmp', '.gif', 'webp')):
-            print(f'\nProcessing file: {blob.name}')
+        # Read the image content from GCS
+        content = blob.download_as_bytes()
 
-            # Read the image content from GCS
-            content = blob.download_as_bytes()
+        # Prepare the image for the Google Vision API
+        image = vision.Image(content=content)
 
-            # Prepare the image for the Google Vision API
-            image = vision.Image(content=content)
+        # Perform text detection
+        response = vision_client.document_text_detection(image=image)
+        texts = response.text_annotations
 
-            # Perform text detection
-            response = vision_client.document_text_detection(image=image)
-            texts = response.text_annotations
+        if texts:
+            print(f'\n"{texts[0].description}"')
 
-            print('Texts:')
-
-            if texts:
-                # Print the detected text
-                print(f'\n"{texts[0].description}"')
-
-                # Load image into PIL for drawing
-                image_stream = io.BytesIO(content)
-                img = Image.open(image_stream)
+            # Load image into PIL for drawing
+            image_stream = io.BytesIO(content)
+            with Image.open(image_stream) as img:
                 draw = ImageDraw.Draw(img)
 
                 # Draw bounding boxes around detected text
@@ -82,15 +74,15 @@ def detect_text():
                 # Add the URI of the new blob to the list
                 new_blob_uris.append(output_blob.public_url)
 
-            else:
-                print('No text found in the image.')
+        else:
+            print('No text found in the image.')
 
-            # Check for any errors in the response
-            if response.error.message:
-                raise Exception(
-                    '{}\nFor more info on error messages, check: '
-                    'https://cloud.google.com/apis/design/errors'.format(
-                        response.error.message))
+        # Check for any errors in the response
+        if response.error.message:
+            raise Exception(
+                '{}\nFor more info on error messages, check: '
+                'https://cloud.google.com/apis/design/errors'.format(response.error.message))
 
     return new_blob_uris
+
 
