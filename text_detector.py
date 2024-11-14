@@ -1,14 +1,16 @@
 import os
 import io
 from google.cloud import vision, storage
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, UnidentifiedImageError
 
 
 def detect_text():
     # Initialize the Google Vision API and Storage clients
     vision_client = vision.ImageAnnotatorClient()
     storage_client = storage.Client()
-    bucket_name = 'staging.focal-sight-440113-b7.appspot.com'
+
+    # Get the bucket name from the environment variable set in app.yaml
+    bucket_name = os.environ.get('BUCKET_NAME')
 
     # Get the bucket
     bucket = storage_client.bucket(bucket_name)
@@ -16,23 +18,41 @@ def detect_text():
     # List all blobs in the bucket (images)
     blobs = list(bucket.list_blobs())
 
-    # Filter out blobs with "_boxed.png" in their names and process the rest
-    image_blobs = [blob for blob in blobs if not "_boxed.png" in blob.name and blob.name.lower().endswith(
-        ('.png', '.jpg', '.jpeg', '.bmp', '.gif', 'webp'))]
+    # Identify blobs with "__boxed.png" in the name
+    boxed_blobs = {blob.name.split('__boxed.png')[0] for blob in blobs if "__boxed.png" in blob.name}
 
-    # Remove any blobs that have "_boxed.png" in their names
-    for blob in blobs:
-        if "_boxed.png" in blob.name:
-            print(f'Deleting existing boxed image: {blob.name}')
-            blob.delete()
+    # Filter out blobs with "__boxed.png" in their names and also skip those that have a corresponding "__boxed.png"
+    image_blobs = [
+        blob for blob in blobs
+        if "__boxed.png" not in blob.name and
+           blob.name.split('.')[0] not in boxed_blobs and  # Skip images with a corresponding "__boxed.png"
+           blob.name.lower().endswith(('.png', '.jpg', '.jpeg', '.bmp', '.gif', '.webp'))
+    ]
 
     new_blob_uris = []
+
+    # Add all blobs with "__boxed.png" to new_blob_uris (skip processing)
+    for blob in blobs:
+        if "__boxed.png" in blob.name:
+            print(f'Skipping already processed image: {blob.name}')
+            new_blob_uris.append(blob.public_url)
 
     for blob in image_blobs:
         print(f'\nProcessing file: {blob.name}')
 
         # Read the image content from GCS
-        content = blob.download_as_bytes()
+        try:
+            content = blob.download_as_bytes()
+        except Exception as e:
+            print(f"Error downloading image {blob.name}: {e}")
+            continue
+
+        # Try to open the image with PIL to check if it's a valid image
+        try:
+            image = Image.open(io.BytesIO(content))
+        except UnidentifiedImageError:
+            print(f"Error: {blob.name} is not a valid image file.")
+            continue
 
         # Prepare the image for the Google Vision API
         image = vision.Image(content=content)
@@ -40,7 +60,6 @@ def detect_text():
         # Perform text detection
         response = vision_client.document_text_detection(image=image)
         texts = response.text_annotations
-
         if texts:
             print(f'\n"{texts[0].description}"')
 
@@ -61,7 +80,7 @@ def detect_text():
                 output_image_stream.seek(0)
 
                 # Create a new blob for the output image with a modified name
-                output_blob_name = f'{os.path.splitext(blob.name)[0]}_boxed.png'
+                output_blob_name = f'{os.path.splitext(blob.name)[0]}__boxed.png'
                 output_blob = bucket.blob(output_blob_name)
 
                 # Upload the modified image to the bucket
@@ -73,7 +92,6 @@ def detect_text():
 
                 # Add the URI of the new blob to the list
                 new_blob_uris.append(output_blob.public_url)
-
         else:
             print('No text found in the image.')
 
@@ -81,8 +99,8 @@ def detect_text():
         if response.error.message:
             raise Exception(
                 '{}\nFor more info on error messages, check: '
-                'https://cloud.google.com/apis/design/errors'.format(response.error.message))
+                'https://cloud.google.com/apis/design/errors'.format(response.error.message)
+            )
 
     return new_blob_uris
-
 

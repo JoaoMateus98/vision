@@ -1,6 +1,6 @@
 from flask import Flask, render_template
-import secrets
 from text_detector import detect_text
+import secrets
 
 app = Flask(__name__)
 

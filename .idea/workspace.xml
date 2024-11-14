@@ -4,8 +4,7 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="fbe3b696-1b4a-4f7f-90f5-7c3b2058a9fb" name="Changes" comment="working code">
-      <change afterPath="$PROJECT_DIR$/requirements.txt" afterDir="false" />
+    <list default="true" id="fbe3b696-1b4a-4f7f-90f5-7c3b2058a9fb" name="Changes" comment="added requirements.txt and app.yaml">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app.py" beforeDir="false" afterPath="$PROJECT_DIR$/app.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/text_detector.py" beforeDir="false" afterPath="$PROJECT_DIR$/text_detector.py" afterDir="false" />
@@ -27,18 +26,18 @@
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>
-  <component name="GitHubPullRequestSearchHistory"><![CDATA[{
-  "lastFilter": {
-    "state": "OPEN",
-    "assignee": "JoaoMateus98"
+  <component name="GitHubPullRequestSearchHistory">{
+  &quot;lastFilter&quot;: {
+    &quot;state&quot;: &quot;OPEN&quot;,
+    &quot;assignee&quot;: &quot;JoaoMateus98&quot;
   }
-}]]></component>
-  <component name="GithubPullRequestsUISettings"><![CDATA[{
-  "selectedUrlAndAccountId": {
-    "url": "https://github.com/JoaoMateus98/vision.git",
-    "accountId": "5c7c779d-e095-4751-9d63-693ad33c2b1f"
+}</component>
+  <component name="GithubPullRequestsUISettings">{
+  &quot;selectedUrlAndAccountId&quot;: {
+    &quot;url&quot;: &quot;https://github.com/JoaoMateus98/vision.git&quot;,
+    &quot;accountId&quot;: &quot;5c7c779d-e095-4751-9d63-693ad33c2b1f&quot;
   }
-}]]></component>
+}</component>
   <component name="ProjectColorInfo">{
   &quot;associatedIndex&quot;: 0
 }</component>
@@ -97,7 +96,8 @@
       <option name="presentableId" value="Default" />
       <updated>1731547335114</updated>
       <workItem from="1731547336457" duration="2345000" />
-      <workItem from="1731549703333" duration="8366000" />
+      <workItem from="1731549703333" duration="10614000" />
+      <workItem from="1731563339146" duration="121000" />
     </task>
     <task id="LOCAL-00001" summary="working code">
       <option name="closed" value="true" />
@@ -115,7 +115,15 @@
       <option name="project" value="LOCAL" />
       <updated>1731555005687</updated>
     </task>
-    <option name="localTasksCounter" value="3" />
+    <task id="LOCAL-00003" summary="added requirements.txt and app.yaml">
+      <option name="closed" value="true" />
+      <created>1731561104732</created>
+      <option name="number" value="00003" />
+      <option name="presentableId" value="LOCAL-00003" />
+      <option name="project" value="LOCAL" />
+      <updated>1731561104732</updated>
+    </task>
+    <option name="localTasksCounter" value="4" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -123,9 +131,10 @@
   </component>
   <component name="VcsManagerConfiguration">
     <MESSAGE value="working code" />
-    <option name="LAST_COMMIT_MESSAGE" value="working code" />
+    <MESSAGE value="added requirements.txt and app.yaml" />
+    <option name="LAST_COMMIT_MESSAGE" value="added requirements.txt and app.yaml" />
   </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
-    <SUITE FILE_PATH="coverage/Vision$Vision.coverage" NAME="Vision Coverage Results" MODIFIED="1731558588866" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/Vision$Vision.coverage" NAME="Vision Coverage Results" MODIFIED="1731562504431" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
   </component>
 </project>
