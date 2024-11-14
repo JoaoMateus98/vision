@@ -9,8 +9,8 @@ app.secret_key = secrets.token_hex(16)  # Generates a secure random string
 
 @app.route('/', methods=['GET'])
 def get_image():
-    detect_text()
-    return render_template("display_image.html")
+    new_blob_uris = detect_text()
+    return render_template('display_images.html', image_uris=new_blob_uris)
 
 if __name__ == '__main__':
     app.run(debug=True)

@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Display Image</title>
+</head>
+<body>
+    <h1>Images with Detected Text</h1>
+    {% for uri in image_uris %}
+        <div>
+            <img src="{{ uri }}" alt="Detected text image" style="max-width: 500px; max-height: 500px;">
+        </div>
+    {% endfor %}
+</body>
+</html>

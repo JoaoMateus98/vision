@@ -23,6 +23,9 @@ def detect_text():
             print(f'Deleting existing boxed image: {blob.name}')
             blob.delete()
 
+    # List to store URIs of newly created blobs
+    new_blob_uris = []
+
     # Process each image blob
     for blob in blobs:
         # Skip if blob name contains "_boxed.png" as it was just deleted
@@ -73,6 +76,12 @@ def detect_text():
                 output_blob.upload_from_file(output_image_stream, content_type='image/png')
                 print(f"Saved image with bounding boxes to {output_blob_name} in bucket {bucket_name}")
 
+                # Make the blob publicly accessible
+                output_blob.make_public()
+
+                # Add the URI of the new blob to the list
+                new_blob_uris.append(output_blob.public_url)
+
             else:
                 print('No text found in the image.')
 
@@ -82,4 +91,6 @@ def detect_text():
                     '{}\nFor more info on error messages, check: '
                     'https://cloud.google.com/apis/design/errors'.format(
                         response.error.message))
+
+    return new_blob_uris
 
