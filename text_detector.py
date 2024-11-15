@@ -1,106 +1,136 @@
-import os
 import io
+import os
+import logging
 from google.cloud import vision, storage
-from PIL import Image, ImageDraw, UnidentifiedImageError
+from PIL import Image, ImageDraw
+
+# Get the bucket name from the environment variable set in app.yaml
+BUCKET_NAME = os.environ.get('BUCKET_NAME')
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
 
 
-def detect_text():
-    # Initialize the Google Vision API and Storage clients
+def initialize_clients():
+    """Initialize Google Vision API and Cloud Storage clients."""
     vision_client = vision.ImageAnnotatorClient()
     storage_client = storage.Client()
+    return vision_client, storage_client
 
-    # Get the bucket name from the environment variable set in app.yaml
-    bucket_name = os.environ.get('BUCKET_NAME')
 
-    # Get the bucket
-    bucket = storage_client.bucket(bucket_name)
-
-    # List all blobs in the bucket (images)
+def get_image_blobs(storage_client):
+    """Get a list of image blobs that need to be processed from the bucket."""
+    bucket = storage_client.bucket(BUCKET_NAME)
     blobs = list(bucket.list_blobs())
 
     # Identify blobs with "__boxed.png" in the name
     boxed_blobs = {blob.name.split('__boxed.png')[0] for blob in blobs if "__boxed.png" in blob.name}
 
-    # Filter out blobs with "__boxed.png" in their names and also skip those that have a corresponding "__boxed.png"
+    # Filter out blobs with "__boxed.png" in their names
     image_blobs = [
         blob for blob in blobs
         if "__boxed.png" not in blob.name and
-           blob.name.split('.')[0] not in boxed_blobs and  # Skip images with a corresponding "__boxed.png"
+           blob.name.split('.')[0] not in boxed_blobs and
            blob.name.lower().endswith(('.png', '.jpg', '.jpeg', '.bmp', '.gif', '.webp'))
     ]
 
-    new_blob_uris = []
+    return image_blobs, blobs
 
-    # Add all blobs with "__boxed.png" to new_blob_uris (skip processing)
+
+def process_blob(blob, vision_client, bucket):
+    """Process a single blob, detect text, draw bounding boxes, and upload the modified image."""
+    logging.info(f'Processing file: {blob.name}')
+
+    # Read the image content from GCS
+    content = blob.download_as_bytes()
+
+    # Prepare the image for the Google Vision API
+    image = vision.Image(content=content)
+
+    # Perform text detection
+    response = vision_client.document_text_detection(image=image)
+
+    # Check for any errors in the response
+    if response.error.message:
+        logging.error('Vision API error: %s', response.error.message)
+        raise Exception(
+            '{}\nFor more info on error messages, check: '
+            'https://cloud.google.com/apis/design/errors'.format(response.error.message)
+        )
+
+    texts = response.text_annotations
+
+    if texts:
+        logging.info('Detected text: "%s"', texts[0].description)
+
+        # Draw bounding boxes around detected text
+        img_with_boxes = draw_bounding_boxes(content, texts)
+
+        # Upload the image with bounding boxes
+        output_blob = upload_processed_image(img_with_boxes, blob, bucket)
+
+        return output_blob.public_url
+    else:
+        logging.warning('No text found in the image.')
+        return None
+
+
+def draw_bounding_boxes(image_content, texts):
+    """Draw bounding boxes on the image for the detected text."""
+    image_stream = io.BytesIO(image_content)
+    with Image.open(image_stream) as img:
+        draw = ImageDraw.Draw(img)
+
+        # Draw bounding boxes around detected text
+        for text in texts[1:]:  # Skip the first element which is the entire text block
+            vertices = text.bounding_poly.vertices
+            box = [(vertex.x, vertex.y) for vertex in vertices]
+            draw.line(box + [box[0]], width=2, fill="red")
+
+    # Return the modified image with bounding boxes
+    output_image_stream = io.BytesIO()
+    img.save(output_image_stream, format='PNG')
+    output_image_stream.seek(0)
+
+    return output_image_stream
+
+
+def upload_processed_image(image_stream, blob, bucket):
+    """Upload the modified image with bounding boxes to the bucket."""
+    output_blob_name = f'{os.path.splitext(blob.name)[0]}__boxed.png'
+    output_blob = bucket.blob(output_blob_name)
+
+    # Upload the modified image
+    output_blob.upload_from_file(image_stream, content_type='image/png')
+    logging.info("Saved image with bounding boxes to %s in bucket %s", output_blob_name, BUCKET_NAME)
+
+    # Make the blob publicly accessible
+    output_blob.make_public()
+
+    return output_blob
+
+
+def get_image_uris():
+    """Main function to detect text and add bounding boxes to images."""
+    vision_client, storage_client = initialize_clients()
+
+    # Get the image blobs
+    image_blobs, blobs = get_image_blobs(storage_client)
+
+    image_uris = []
+
+    # Add all blobs with "__boxed.png" to image_uris (skip processing)
     for blob in blobs:
         if "__boxed.png" in blob.name:
-            print(f'Skipping already processed image: {blob.name}')
-            new_blob_uris.append(blob.public_url)
+            logging.info('Skipping already processed image: %s', blob.name)
+            image_uris.append(blob.public_url)
 
+    # Process each image blob
     for blob in image_blobs:
-        print(f'\nProcessing file: {blob.name}')
+        processed_blob_uri = process_blob(blob, vision_client, storage_client.bucket(BUCKET_NAME))
+        if processed_blob_uri:
+            image_uris.append(processed_blob_uri)
 
-        # Read the image content from GCS
-        try:
-            content = blob.download_as_bytes()
-        except Exception as e:
-            print(f"Error downloading image {blob.name}: {e}")
-            continue
+    return image_uris
 
-        # Try to open the image with PIL to check if it's a valid image
-        try:
-            image = Image.open(io.BytesIO(content))
-        except UnidentifiedImageError:
-            print(f"Error: {blob.name} is not a valid image file.")
-            continue
-
-        # Prepare the image for the Google Vision API
-        image = vision.Image(content=content)
-
-        # Perform text detection
-        response = vision_client.document_text_detection(image=image)
-        texts = response.text_annotations
-        if texts:
-            print(f'\n"{texts[0].description}"')
-
-            # Load image into PIL for drawing
-            image_stream = io.BytesIO(content)
-            with Image.open(image_stream) as img:
-                draw = ImageDraw.Draw(img)
-
-                # Draw bounding boxes around detected text
-                for text in texts[1:]:  # Skip the first element which is the entire text block
-                    vertices = text.bounding_poly.vertices
-                    box = [(vertex.x, vertex.y) for vertex in vertices]
-                    draw.line(box + [box[0]], width=2, fill="red")
-
-                # Prepare image for upload
-                output_image_stream = io.BytesIO()
-                img.save(output_image_stream, format='PNG')
-                output_image_stream.seek(0)
-
-                # Create a new blob for the output image with a modified name
-                output_blob_name = f'{os.path.splitext(blob.name)[0]}__boxed.png'
-                output_blob = bucket.blob(output_blob_name)
-
-                # Upload the modified image to the bucket
-                output_blob.upload_from_file(output_image_stream, content_type='image/png')
-                print(f"Saved image with bounding boxes to {output_blob_name} in bucket {bucket_name}")
-
-                # Make the blob publicly accessible
-                output_blob.make_public()
-
-                # Add the URI of the new blob to the list
-                new_blob_uris.append(output_blob.public_url)
-        else:
-            print('No text found in the image.')
-
-        # Check for any errors in the response
-        if response.error.message:
-            raise Exception(
-                '{}\nFor more info on error messages, check: '
-                'https://cloud.google.com/apis/design/errors'.format(response.error.message)
-            )
-
-    return new_blob_uris
 
