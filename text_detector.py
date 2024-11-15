@@ -6,11 +6,7 @@ from PIL import Image, ImageDraw, ImageEnhance, ImageFilter
 import numpy as np
 
 # Get the bucket name from the environment variable set in app.yaml
-BUCKET_NAME = 'comp-399-vision'
-
-### ONLY FOR LOCAL TESTING
-# Set the path to your Google Cloud service account credentials
-os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = r'C:\Programming\Dev\secrets\vision-text-detector-2024-0632f72c7099.json'
+BUCKET_NAME = os.environ.get('BUCKET_NAME')
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -181,5 +177,3 @@ def get_image_uris():
             image_uris.append(processed_blob_uri)
 
     return image_uris
-
-
